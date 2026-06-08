@@ -1,4 +1,4 @@
-#!/usr/local/bin/gawk -f
+#!/usr/bin/gawk -f
 #
 # dscpdump v2.0
 # Parse and dump DSCP, ECN, and ToS fields from a tcpdump stream
