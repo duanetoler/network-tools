@@ -1,0 +1,60 @@
+#!/usr/local/bin/gawk -f
+#
+# Parse and dump DSCP and ToS fields from a tcpdump stream
+#
+# dscpdump for MacOS X (the "Big Cats" era):
+#   sudo tcpdump -glv -nni en0 ip | ./dscpdump-osx
+#
+# Requires tcpdump parameters -glv 
+#
+# macOS 11 and higher, use the new uniified dscpdump v2
+#
+# Requires GNU gawk from Homebrew; OS X doesn't have the awk functions needed
+#
+# Optional: other pcap filters (tcpdump -glv -nni eth0 ip and host 192.0.2.1 | ./dscpdump-osx
+#
+
+BEGIN {
+  DEBUG=0;
+}
+
+{
+  tos=strtonum($4);
+  dscp=(and(tos,252));
+  cs=rshift(dscp,5);
+  dp=((dscp % 32)/8); 
+
+  if (DEBUG) {
+    print "tos: "tos"; dscp: "dscp"; cs: "cs"; dp: "dp;
+  }
+
+  if (dscp==0) {
+    cp="DF";
+  } else if (tos < 32) {
+    cp="ToS ";
+    if (and(tos,16))
+      cp=cp"-D";
+    if (and(tos,8))
+      cp=cp"+T"
+    if (and(tos,4))
+      cp=cp"+R";  
+  } else if (dscp==184) {
+    cp="EF";
+  } else if (cs && dp) {
+    cp="AF"cs""dp;
+  } else {
+    cp="CS"cs;
+  } 
+
+  printf("%6s%5s%25s%25s",
+    cp,
+    $14,
+    gensub("\\."," ",4,$18),
+    gensub("\\."," ",4,gensub(":","","g",$20)));
+
+  if ($14 ~ /TCP/) {
+    printf("%6s",gensub(",","","g",$22))
+  }
+
+  printf("\n");
+}

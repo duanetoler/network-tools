@@ -1,0 +1,79 @@
+#!/usr/local/bin/gawk -f
+#
+# dscpdump v2.0
+# Parse and dump DSCP, ECN, and ToS fields from a tcpdump stream
+#
+# Linux:
+#   sudo tcpdump -lvnni eth0 ip | ./dscpdump
+#
+# macOS 11+:
+#   sudo tcpdump -lvnni en0 ip | ./dscpdump
+#
+# Requires tcpdump parameters: -v -l
+#
+# macOS: Requires GNU gawk from Homebrew
+#        Change the first line to:  #!/usr/local/bin/gawk -f
+#        macOS awk doesn't have the various functions needed
+#
+# Optional: additional pcap filters
+#   e.g. tcpdump -lvnni eth0 ip and host 192.0.2.1 | ./dscpdump
+# No need for any other fancy tcpdump flags here; only need the header lines
+
+BEGIN {
+  DEBUG = 0;
+}
+
+$3 ~ /tos/ {
+  tos  = strtonum($4);
+  ecn  = and(tos, 3);
+  dscp = rshift(and(tos, 252), 2);
+  cs   = rshift(dscp, 3);
+  dp   = and(dscp, 3);
+  proto = $14;
+
+  if (DEBUG) {
+    print "tos: "tos"; dscp: "dscp"; cs: "cs"; dp: "dp"; ecn: "ecn;
+  }
+
+  if (dscp == 0) {
+    cp = "DF";
+  } else if (dscp < 8) {
+    cp = "ToS ";
+    if (and(tos, 16))
+      cp = cp"-D";
+    if (and(tos, 8))
+      cp = cp"+T";
+    if (and(tos, 4))
+      cp = cp"+R";
+  } else if (dscp == 46) {
+    cp = "EF";
+  } else if (cs && dp) {
+    cp = "AF" cs dp;
+  } else {
+    cp = "CS" cs;
+  }
+
+  if (ecn == 0)
+    ecn_str = "";
+  else if (ecn == 1)
+    ecn_str = "ECT1";
+  else if (ecn == 2)
+    ecn_str = "ECT0";
+  else
+    ecn_str = "CE";
+
+  if ((getline) <= 0) next;
+
+  printf("%6s%5s%5s%25s%25s",
+    cp,
+    ecn_str,
+    proto,
+    gensub("\\.", " ", 4, $1),
+    gensub("\\.", " ", 4, gensub(":", "", "g", $3)));
+
+  if (proto ~ /TCP/) {
+    printf("%6s", gensub(",", "", "g", $5));
+  }
+
+  printf("\n");
+}
