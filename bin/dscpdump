@@ -20,7 +20,9 @@
 # No need for any other fancy tcpdump flags here; only need the header lines
 
 BEGIN {
-  DEBUG = 0;
+  if (! DEBUG) {
+    DEBUG = 0;
+  }
 }
 
 $3 ~ /tos/ {
